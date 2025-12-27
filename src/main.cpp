@@ -1,11 +1,9 @@
-#include "Circle/circle.h"
 #include "FFT/fft.h"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 #include "models/Vertex.h"
 #include "phasor/Phasor.h"
-#include "renderers/PhasorRenderer.h"
 #include "renderers/Signal.h"
 #include <GLFW/glfw3.h>
 #include <Shader/Shader.h>
@@ -24,15 +22,6 @@ void processInput(GLFWwindow *window) {
 }
 
 int main() {
-  auto signal = std::vector<std::complex<float>>{1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
-  addPowerOf2Padding(signal);
-  std::cout << "signal: ";
-  printComplexVector(signal);
-
-  auto freqs = fft(signal);
-  std::cout << "frequency domain: ";
-  printComplexVector(freqs);
-
   glfwSetErrorCallback(error_callback);
   if (!glfwInit()) {
     std::cout << "glfw init failed \n";
@@ -56,20 +45,10 @@ int main() {
   }
   glfwSwapInterval(1);
 
-  auto centre = Vertex{glm::vec3{-0.25f, 0.0f, 0.0f},
-                       glm::vec3{1.0f, 1.0f, 1.0f}, glm::vec2{0.0f, 0.0f}};
-
-  auto phasor = Phasor(1.0f, 5.0f);
-  float aspect = (float)1920 / (float)1080;
-
-  glm::mat4 projection = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
-  auto last = glfwGetTime();
-  glm::mat4 trans = glm::mat4(1.0f);
-  trans = glm::translate(trans, glm::vec3(0.1f, 0.0f, 0.0f));
-  auto sp = Phasor(2.0f, 1.0f);
   auto signl = Signal();
-  signl.sample("", 1);
+  signl.sample("/home/joseph/Downloads/clover.svg", 1, 50);
   signl.process();
+  auto last = glfwGetTime();
   while (!glfwWindowShouldClose(window)) {
     processInput(window);
 
@@ -93,6 +72,7 @@ int main() {
     glfwPollEvents();
   }
 
+  signl.reset();
   glfwDestroyWindow(window);
   glfwTerminate();
   return 0;

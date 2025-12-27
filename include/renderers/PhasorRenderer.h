@@ -14,9 +14,10 @@ public:
                                         "src/shaders/commonShader.frag"),
                  Vertex centre = {glm::vec3(0.0f), glm::vec3(1.0f),
                                   glm::vec2(0.0f)},
-                 float thickness = 0.002f);
+                 float thickness = 0.0025f);
   ~PhasorRenderer();
 
+  void reset();
   void draw(const Phasor &phasor, glm::mat4 transform = glm::mat4(1.0));
 
 private:
