@@ -70,9 +70,9 @@ void PhasorRenderer::initializeVAO() {
 std::vector<Vertex> PhasorRenderer::generateVertices(Vertex centre,
                                                      float thickness) {
   float halfThick = thickness / 2;
-  float bodyLength = 0.09f;
-  float headLength = 0.01f;
-  float headHeight = thickness + 0.01f;
+  float bodyLength = 0.9f;
+  float headLength = 0.1f;
+  float headHeight = thickness + 0.1f;
 
   Vertex topLeft = {centre.position + glm::vec3(0.0f, halfThick, 0.0f),
                     centre.color, centre.texCoord};

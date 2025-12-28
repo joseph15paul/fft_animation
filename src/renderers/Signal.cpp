@@ -1,16 +1,51 @@
 #include "renderers/Signal.h"
+#include "Shader/Shader.h"
 #include "glm/ext/matrix_transform.hpp"
+#include "models/TracePoint.h"
+#include <cmath>
 #include <complex>
 #include <cstdlib>
 #include <vector>
 #define NANOSVG_IMPLEMENTATION
 #include "nanoSVG/nanosvg.h"
-#define PI 3.14
 
-Signal::Signal() {}
+constexpr float PI = 3.1415927f;
+constexpr size_t MAX_TRACE = 20000;
+
+Signal::Signal(Shader shader) : shader(shader) {
+  glGenVertexArrays(1, &vao);
+  glGenBuffers(1, &vbo);
+  glBindVertexArray(vao);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBufferData(GL_ARRAY_BUFFER, MAX_TRACE * sizeof(TracePoint), trace.data(),
+               GL_DYNAMIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(TracePoint),
+                        (void *)0);
+  glEnableVertexAttribArray(0);
+
+  glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(TracePoint),
+                        (void *)offsetof(TracePoint, alpha));
+  glEnableVertexAttribArray(2);
+  glBindVertexArray(0);
+}
+
 Signal::~Signal() { reset(); }
 
-void Signal::reset() { renderer.reset(); }
+void Signal::reset() {
+  renderer.reset();
+
+  if (vbo != 0) {
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glDeleteBuffers(1, &vbo);
+    vbo = 0;
+  }
+  if (vao == 0) {
+    return;
+  }
+  glDeleteVertexArrays(1, &vao);
+  vao = 0;
+}
 
 void Signal::sample(std::string filePath, float samplingRateHZ,
                     int numberOfSamples) {
@@ -67,17 +102,6 @@ void Signal::sample(std::string filePath, float samplingRateHZ,
 
 void Signal::process() {
   phasors.clear();
-  /*
-        signal = std::vector<std::complex<float>>{
-    { 0.000000f, 0.0f },
-    { 0.707107f, 0.0f },
-    { 1.000000f, 0.0f },
-    { 0.707107f, 0.0f },
-    { 0.000000f, 0.0f },
-    { -0.707107f, 0.0f },
-    { -1.000000f, 0.0f },
-    { -0.707107f, 0.0f }
-};*/
   addPowerOf2Padding(samples);
   std::cout << "samples: ";
   printComplexVector(samples);
@@ -86,24 +110,54 @@ void Signal::process() {
 
   std::cout << "\nfreq: ";
   printComplexVector(freqs);
+
   auto half = numberOfSamples / 2;
   const float invN = 1.0f / numberOfSamples;
-  for (int i = 0; i <= half; i++) {
+  for (int i = 1; i <= half; i++) {
     phasors.push_back(Phasor(i * freqResolution, freqs[i] * invN));
   }
   for (int i = numberOfSamples - 1; i > half; i--) {
     int bin = static_cast<int>(i) - static_cast<int>(numberOfSamples);
     float freq = bin * freqResolution;
-    phasors.push_back(Phasor(freq, freqs[i]));
+    phasors.push_back(Phasor(freq, freqs[i] * invN));
   }
 }
 
 void Signal::draw(float dt, glm::mat4 transform) {
+  auto phasorCentreTranslation = glm::mat4(transform);
+  std::complex<float> tip = {0.0f, 0.0f};
   for (Phasor &phasor : phasors) {
     phasor.update(dt);
-    renderer.draw(phasor, transform);
-    transform = glm::translate(transform,
-                               glm::vec3(phasor.getComplex().real() / 10,
-                                         phasor.getComplex().imag() / 10, 0.0));
+    renderer.draw(phasor, phasorCentreTranslation);
+    phasorCentreTranslation = glm::translate(
+        phasorCentreTranslation,
+        glm::vec3(phasor.getComplex().real(), phasor.getComplex().imag(), 0.0));
+    tip += phasor.getComplex();
   }
+
+  trace.push_back({glm::vec2(tip.real(), tip.imag()), 1.0});
+  if (trace.size() > MAX_TRACE)
+    trace.erase(trace.begin());
+  updateTrace(dt);
+  renderTrace(transform);
+}
+
+void Signal::renderTrace(glm::mat4 mvp) {
+  shader.use();
+  shader.setVec3("uColor", glm::vec3{0.4, 0.6, 0.4});
+  shader.setMat4("mvp", mvp);
+  glBindVertexArray(vao);
+  glDrawArrays(GL_LINE_STRIP, 0, trace.size());
+}
+
+void Signal::updateTrace(float dt) {
+  float rateFactor = samplingRate / (samplingRate + 2500.0f);
+  for (auto &p : trace) {
+    p.alpha -= dt * 0.1f * rateFactor;
+    p.alpha = glm::max(p.alpha, 0.0f);
+  }
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, trace.size() * sizeof(TracePoint),
+                  trace.data());
 }

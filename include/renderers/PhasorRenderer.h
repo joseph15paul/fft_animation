@@ -14,7 +14,7 @@ public:
                                         "src/shaders/commonShader.frag"),
                  Vertex centre = {glm::vec3(0.0f), glm::vec3(1.0f),
                                   glm::vec2(0.0f)},
-                 float thickness = 0.0025f);
+                 float thickness = 0.025f);
   ~PhasorRenderer();
 
   void reset();
