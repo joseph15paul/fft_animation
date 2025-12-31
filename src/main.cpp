@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <Shader/Shader.h>
 #include <cmath>
+#include <filesystem>
 #include <glad/glad.h>
 #include <iostream>
 #include <ostream>
@@ -28,9 +29,9 @@ void processInput(GLFWwindow *window) {
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     cameraPos.y -= cameraSpeed;
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    cameraPos.x -= cameraSpeed;
-  if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     cameraPos.x += cameraSpeed;
+  if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    cameraPos.x -= cameraSpeed;
 }
 
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
@@ -41,7 +42,40 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
   zoom = glm::clamp(zoom, 0.0001f, 100.0f);
 }
 
-int main() {
+void printUsage(const char *programName) {
+  std::cout << "Usage:\n"
+            << "  " << programName << " <file_path> <float> [float]\n\n"
+            << "Arguments:\n"
+            << "  file_path   Path to input file\n"
+            << "  float     Sampling rate (affects speed of animation too)\n";
+}
+
+bool fileExists(const std::filesystem::path &path) {
+  return std::filesystem::exists(path) &&
+         std::filesystem::is_regular_file(path);
+}
+
+int main(int argc, char *argv[]) {
+  if (argc != 3) {
+    printUsage(argv[0]);
+    return 1;
+  }
+
+  std::string filePath = argv[1];
+  if (!fileExists(filePath)) {
+    std::cerr << "Error: file does not exist: " << filePath << "\n";
+    return 1;
+  }
+
+  float rate;
+  try {
+    rate = std::stof(argv[2]);
+  } catch (...) {
+    std::cerr << "Error: Sampling rate argument is invalid\n";
+    printUsage(argv[0]);
+    return 1;
+  }
+
   glfwSetErrorCallback(error_callback);
   if (!glfwInit()) {
     std::cout << "glfw init failed \n";
@@ -51,7 +85,7 @@ int main() {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  auto *window = glfwCreateWindow(1080, 1080, "MY WINDOW", NULL, NULL);
+  auto *window = glfwCreateWindow(1080, 1080, "FFT Canvas", NULL, NULL);
   if (!window) {
     std::cout << "window creation failed \n";
     glfwTerminate();
@@ -67,11 +101,12 @@ int main() {
   glfwSetScrollCallback(window, scroll_callback);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
   auto signl = Signal();
-  signl.sample("/home/joseph/Downloads/orca.svg", 100, 4096);
+  signl.sample(filePath, rate, 512);
   signl.process();
 
-  glm::mat4 view = glm::mat4(1.0);
+  glm::mat4 view;
 
   while (!glfwWindowShouldClose(window)) {
     processInput(window);
@@ -80,7 +115,7 @@ int main() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     float currentFrame = glfwGetTime();
-    deltaTime = currentFrame - lastFrame;
+    deltaTime = (currentFrame - lastFrame);
     lastFrame = currentFrame;
 
     view = glm::mat4(1.0);

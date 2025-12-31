@@ -2,6 +2,7 @@
 #include "Shader/Shader.h"
 #include "glm/ext/matrix_transform.hpp"
 #include "models/TracePoint.h"
+#include <algorithm>
 #include <cmath>
 #include <complex>
 #include <cstdlib>
@@ -63,7 +64,7 @@ void Signal::sample(std::string filePath, float samplingRateHZ,
       for (int i = 0; i < n - 1; i++) {
         float x = pts[2 * i];
         float y = pts[2 * i + 1];
-        poly.push_back(std::complex<float>{x, y});
+        poly.push_back(std::complex<float>{x, -y});
       }
     }
   }
