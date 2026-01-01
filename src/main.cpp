@@ -13,9 +13,19 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
 float zoom = 1.0f;
+bool latch = false;
+int sampleCount = 512;
+std::string file;
+float rate = 100.0;
+Signal *signal;
 
 static void error_callback(int error, const char *description) {
   std::cout << description << "\n";
+}
+
+void resetSignal(Signal &signal) {
+  signal.sample(file, rate, sampleCount);
+  signal.process();
 }
 
 void processInput(GLFWwindow *window) {
@@ -34,6 +44,34 @@ void processInput(GLFWwindow *window) {
     cameraPos.x -= cameraSpeed;
 }
 
+void keyCallback(GLFWwindow *window, int key, int scancode, int action,
+                 int mods) {
+  if (action != GLFW_PRESS)
+    return;
+
+  if (key == GLFW_KEY_9) {
+    sampleCount *= 2;
+    sampleCount = glm::clamp(sampleCount, 2, 8192);
+    resetSignal(*signal);
+  } else if (key == GLFW_KEY_0) {
+    sampleCount /= 2;
+    sampleCount = glm::clamp(sampleCount, 2, 8192);
+    resetSignal(*signal);
+  }
+
+  if (key == GLFW_KEY_L)
+    latch = !latch;
+
+  if (key == GLFW_KEY_N) {
+    rate += rate / 10;
+    resetSignal(*signal);
+  }
+  if (key == GLFW_KEY_B) {
+    rate -= rate / 10;
+    resetSignal(*signal);
+  }
+}
+
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
   float zoomSpeed = 0.1f;
   zoom *= (1.0f + yoffset * zoomSpeed);
@@ -44,10 +82,9 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
 
 void printUsage(const char *programName) {
   std::cout << "Usage:\n"
-            << "  " << programName << " <file_path> <float> [float]\n\n"
+            << "  " << programName << " <file_path>\n\n"
             << "Arguments:\n"
-            << "  file_path   Path to input file\n"
-            << "  float     Sampling rate (affects speed of animation too)\n";
+            << "  file_path   Path to input file\n";
 }
 
 bool fileExists(const std::filesystem::path &path) {
@@ -56,7 +93,11 @@ bool fileExists(const std::filesystem::path &path) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 3) {
+  if ((std::string)argv[1] == "--help") {
+    printUsage(argv[0]);
+    return 0;
+  }
+  if (argc != 2) {
     printUsage(argv[0]);
     return 1;
   }
@@ -66,15 +107,7 @@ int main(int argc, char *argv[]) {
     std::cerr << "Error: file does not exist: " << filePath << "\n";
     return 1;
   }
-
-  float rate;
-  try {
-    rate = std::stof(argv[2]);
-  } catch (...) {
-    std::cerr << "Error: Sampling rate argument is invalid\n";
-    printUsage(argv[0]);
-    return 1;
-  }
+  file = filePath;
 
   glfwSetErrorCallback(error_callback);
   if (!glfwInit()) {
@@ -99,12 +132,16 @@ int main(int argc, char *argv[]) {
   }
   glfwSwapInterval(1);
   glfwSetScrollCallback(window, scroll_callback);
+  glfwSetKeyCallback(window, keyCallback);
+
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  auto signl = Signal();
-  signl.sample(filePath, rate, 512);
-  signl.process();
+  Signal local;
+  signal = &local;
+  signal->initialize();
+  signal->sample(filePath, rate, 512);
+  signal->process();
 
   glm::mat4 view;
 
@@ -117,17 +154,24 @@ int main(int argc, char *argv[]) {
     float currentFrame = glfwGetTime();
     deltaTime = (currentFrame - lastFrame);
     lastFrame = currentFrame;
+    signal->update(deltaTime);
 
     view = glm::mat4(1.0);
-    view = glm::translate(view, cameraPos);
+    if (latch) {
+      view =
+          glm::translate(view, glm::vec3(-signal->getTip().real() * zoom,
+                                         -signal->getTip().imag() * zoom, 0.0));
+    } else {
+      view = glm::translate(view, cameraPos);
+    }
     view = glm::scale(view, glm::vec3(zoom, zoom, 1.0f));
-    signl.draw(deltaTime, view);
+    signal->draw(view);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
 
-  signl.reset();
+  signal->reset();
   glfwDestroyWindow(window);
   glfwTerminate();
   return 0;

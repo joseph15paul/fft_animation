@@ -16,15 +16,19 @@ class Signal {
   Shader shader;
   unsigned int vao;
   unsigned int vbo;
+  std::complex<float> tip = {0.0, 0.0};
 
 public:
   Signal(Shader shader = Shader("src/shaders/Trace/shader.vert",
                                 "src/shaders/Trace/shader.frag"));
   ~Signal();
 
+  void initialize();
   void sample(std::string filePath, float samplingRateHZ, int numberOfSamples);
   void process();
-  void draw(float dt, glm::mat4 transform = glm::mat4(1.0));
+  void update(float dt);
+  void draw(glm::mat4 transform = glm::mat4(1.0));
+  std::complex<float> getTip() { return tip; };
   void reset();
 
 private:

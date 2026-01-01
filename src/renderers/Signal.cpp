@@ -14,13 +14,18 @@ constexpr float PI = 3.1415927f;
 constexpr size_t MAX_TRACE = 20000;
 
 Signal::Signal(Shader shader) : shader(shader) {
+
+}
+
+Signal::~Signal() { reset(); }
+
+void Signal::initialize() {
   glGenVertexArrays(1, &vao);
   glGenBuffers(1, &vbo);
   glBindVertexArray(vao);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
   glBufferData(GL_ARRAY_BUFFER, MAX_TRACE * sizeof(TracePoint), trace.data(),
                GL_DYNAMIC_DRAW);
-
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(TracePoint),
                         (void *)0);
   glEnableVertexAttribArray(0);
@@ -30,8 +35,6 @@ Signal::Signal(Shader shader) : shader(shader) {
   glEnableVertexAttribArray(2);
   glBindVertexArray(0);
 }
-
-Signal::~Signal() { reset(); }
 
 void Signal::reset() {
   renderer.reset();
@@ -51,6 +54,8 @@ void Signal::reset() {
 void Signal::sample(std::string filePath, float samplingRateHZ,
                     int numberOfSamples) {
   samplingRate = 2 * PI * samplingRateHZ;
+  samples.clear();
+  trace.clear();
   this->numberOfSamples = numberOfSamples;
 
   NSVGimage *image = nsvgParseFromFile(filePath.c_str(), "px", 96);
@@ -104,11 +109,11 @@ void Signal::sample(std::string filePath, float samplingRateHZ,
 void Signal::process() {
   phasors.clear();
   addPowerOf2Padding(samples);
-  std::cout << "samples: ";
+  std::cout << "\nsamples: ";
   printComplexVector(samples);
+
   auto freqResolution = samplingRate / numberOfSamples;
   auto freqs = fft(samples);
-
   std::cout << "\nfreq: ";
   printComplexVector(freqs);
 
@@ -124,22 +129,27 @@ void Signal::process() {
   }
 }
 
-void Signal::draw(float dt, glm::mat4 transform) {
-  auto phasorCentreTranslation = glm::mat4(transform);
-  std::complex<float> tip = {0.0f, 0.0f};
+void Signal::update(float dt) {
+  tip = {0.0f, 0.0f};
   for (Phasor &phasor : phasors) {
     phasor.update(dt);
-    renderer.draw(phasor, phasorCentreTranslation);
-    phasorCentreTranslation = glm::translate(
-        phasorCentreTranslation,
-        glm::vec3(phasor.getComplex().real(), phasor.getComplex().imag(), 0.0));
     tip += phasor.getComplex();
   }
-
   trace.push_back({glm::vec2(tip.real(), tip.imag()), 1.0});
   if (trace.size() > MAX_TRACE)
     trace.erase(trace.begin());
   updateTrace(dt);
+}
+
+void Signal::draw(glm::mat4 transform) {
+  auto phasorCentreTranslation = glm::mat4(transform);
+  for (Phasor &phasor : phasors) {
+    renderer.draw(phasor, phasorCentreTranslation);
+    phasorCentreTranslation = glm::translate(
+        phasorCentreTranslation,
+        glm::vec3(phasor.getComplex().real(), phasor.getComplex().imag(), 0.0));
+  }
+
   renderTrace(transform);
 }
 
@@ -152,7 +162,7 @@ void Signal::renderTrace(glm::mat4 mvp) {
 }
 
 void Signal::updateTrace(float dt) {
-  float rateFactor = samplingRate / (samplingRate + 2500.0f);
+  float rateFactor = samplingRate / (samplingRate + 1500.0f);
   for (auto &p : trace) {
     p.alpha -= dt * 0.1f * rateFactor;
     p.alpha = glm::max(p.alpha, 0.0f);
