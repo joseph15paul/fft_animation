@@ -14,7 +14,7 @@ float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
 float zoom = 1.0f;
 bool latch = false;
-int sampleCount = 512;
+int sampleCount = 1024;
 std::string file;
 float rate = 100.0;
 Signal *signal;
