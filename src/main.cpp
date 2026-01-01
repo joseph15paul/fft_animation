@@ -77,7 +77,7 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
   zoom *= (1.0f + yoffset * zoomSpeed);
 
   // Clamp safely
-  zoom = glm::clamp(zoom, 0.0001f, 100.0f);
+  zoom = glm::clamp(zoom, 0.0001f, 100000.0f);
 }
 
 void printUsage(const char *programName) {
