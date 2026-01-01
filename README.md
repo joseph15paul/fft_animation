@@ -1,6 +1,6 @@
 # Fourier Animations
 
-This project is me trying to implement what the Great Grant Sanderson from 3Blue1Brown did in his explanation of the Fourier series. Go check it out ![here](https://www.youtube.com/watch?v=r6sGWTCMz2k) if you haven't seen it before.
+This project is me trying to implement what the Great Grant Sanderson from 3Blue1Brown did in his explanation of the Fourier series. Go check it out [here](https://www.youtube.com/watch?v=r6sGWTCMz2k) if you haven't seen it before.
 
 The only difference is I used C++ and openGL instead of python and manim (which in hindsight would have been much easier 🥲).
 And yes, learning openGL was ... FUN🫠🫠.
@@ -22,6 +22,9 @@ Also instead of using Fourier series, FFT was used to calcualte the Discrete fou
 - **N** — Speed up the animation  
 
 ## Usage
+Use this build script to build the CMake project and run the executable.
+
+Create SVG file with some editor, I used [svgGator](https://app.svgator.com/). Closed paths work better.
 
 ```bash
 sh ./buildNrun.sh "path/to/your.svg"
